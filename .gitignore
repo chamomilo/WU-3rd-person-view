@@ -1,0 +1,11 @@
+.gradle/
+.gradle-user/
+build/
+libs/*.jar
+AGENTS.md
+mods/WU-third_person_view/state.properties
+*.log
+hs_err_pid*.log
+*.iml
+.idea/
+.vscode/

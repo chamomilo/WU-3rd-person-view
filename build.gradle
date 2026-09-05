@@ -1,0 +1,88 @@
+apply plugin: 'java'
+
+group = 'org.wuthirdpersonview'
+version = '0.2.3'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    def clientLibraries = [
+            'libs/client-patched.jar',
+            'libs/common.jar',
+            'libs/javassist.jar',
+            'libs/modlauncher.jar'
+    ]
+    clientLibraries.each { library ->
+        if (!file(library).isFile()) {
+            throw new GradleException("Required pinned client library is missing: ${library}")
+        }
+    }
+    compile files(clientLibraries)
+    testCompile files('libs/junit-4.13.2.jar', 'libs/hamcrest-core-1.3.jar')
+}
+
+jar {
+    archiveName "${project.name}.jar"
+}
+
+task verifyClientContract(type: Test) {
+    include '**/PinnedClientContractTest.class'
+}
+
+task dist(type: Zip, dependsOn: [test, jar]) {
+    into('mods') {
+        from('mods') { include '*.properties' }
+        into(project.name) {
+            from jar
+            from 'README.md'
+            from 'THIRD_PERSON_VIEW_SPEC.md'
+            from 'LICENSE'
+            into('keybinder') {
+                from 'src/main/resources/keybinder'
+                include '*.keybinder'
+            }
+        }
+    }
+    archiveName "${project.name}-${project.version}.zip"
+}
+
+task verifyDistArchive(dependsOn: dist) {
+    doLast {
+        def archive = zipTree(dist.archivePath)
+        [
+                "mods/${project.name}.properties",
+                "mods/${project.name}/${project.name}.jar",
+                "mods/${project.name}/keybinder/WU-third_person_view.keybinder",
+                "mods/${project.name}/README.md",
+                "mods/${project.name}/LICENSE"
+        ].each { expected ->
+            if (archive.matching { include expected }.files.empty) {
+                throw new GradleException("Distribution is missing ${expected}")
+            }
+        }
+        def packagedProperties = archive.matching {
+            include "mods/${project.name}.properties"
+        }.singleFile.getText('UTF-8')
+        if (!(packagedProperties =~ /(?m)^classpath=${project.name}\.jar$/).find()) {
+            throw new GradleException('Mod classpath must be relative to its own directory')
+        }
+    }
+}
+
+build.dependsOn verifyDistArchive
+
+test {
+    testLogging {
+        events 'failed'
+        exceptionFormat 'full'
+    }
+}
