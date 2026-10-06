@@ -1,7 +1,7 @@
 apply plugin: 'java'
 
 group = 'org.wuthirdpersonview'
-version = '0.2.3'
+version = '0.3.9'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -44,7 +44,6 @@ task dist(type: Zip, dependsOn: [test, jar]) {
         into(project.name) {
             from jar
             from 'README.md'
-            from 'THIRD_PERSON_VIEW_SPEC.md'
             from 'LICENSE'
             into('keybinder') {
                 from 'src/main/resources/keybinder'
@@ -86,3 +85,6 @@ test {
         exceptionFormat 'full'
     }
 }
+
+ext.chamomiloUpdate = [id: 'wu-third-person-view', name: 'Third Person View', repo: 'chamomilo/WU-3rd-person-view', asset: 'WU-third_person_view-{version}.zip', properties: 'mods/WU-third_person_view.properties', main: 'src/main/java/org/wuthirdpersonview/client/WUThirdPersonViewMod.java']
+apply from: 'gradle/chamomilo-updater.gradle'

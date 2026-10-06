@@ -26,6 +26,28 @@ final class ClientHooks {
             }
         });
 
+        CtClass playerBody = pool.get("com.wurmonline.client.renderer.PlayerBodyRenderable");
+        CtMethod renderEquipment = playerBody.getDeclaredMethod("renderEquipment",
+                new CtClass[] {
+                        pool.get("com.wurmonline.client.renderer.backend.Queue"),
+                        pool.get("com.wurmonline.client.renderer.Matrix"),
+                        pool.get("com.wurmonline.client.renderer.Color"),
+                        pool.get("com.wurmonline.client.renderer.ModelRenderMode")
+                });
+        renderEquipment.instrument(new ExprEditor() {
+            @Override
+            public void edit(MethodCall call) throws javassist.CannotCompileException {
+                if ("isShowEquipmentInHands".equals(call.getMethodName())) {
+                    call.replace("{ $_ = org.wuthirdpersonview.client.HolsterEquipmentRenderer"
+                            + ".allowVanillaHandEquipment((com.wurmonline.client.renderer"
+                            + ".PlayerBodyRenderable)$0, $proceed($$)); }");
+                }
+            }
+        });
+        renderEquipment.insertAfter("{ org.wuthirdpersonview.client.HolsterEquipmentRenderer"
+                + ".render(this, $1, $2, $3, $4, this.playerModel, this.renderState,"
+                + " this.equipment); }");
+
         CtClass player = pool.get("com.wurmonline.client.game.PlayerObj");
         CtMethod turn = player.getDeclaredMethod("turn", new CtClass[] {
                 CtClass.intType, CtClass.intType, CtClass.booleanType
@@ -48,6 +70,13 @@ final class ClientHooks {
                 + ".onKeyEvent($1, false); }");
         events.getDeclaredMethod("releaseAll").insertBefore(
                 "{ org.wuthirdpersonview.client.WUThirdPersonViewMod.releaseAllInput(); }");
+
+        CtClass connection = pool.get(
+                "com.wurmonline.client.comm.SimpleServerConnectionClass");
+        connection.getDeclaredMethod("sendBmlResponse", new CtClass[] {
+                pool.get("java.util.Map"), pool.get("java.lang.String")
+        }).insertBefore("{ if (org.wuthirdpersonview.client.WUThirdPersonViewMod"
+                + ".handleHolsterStudioResponse($1, $2)) return; }");
 
         CtClass guiRenderer = pool.get("com.wurmonline.client.renderer.gui.Renderer");
         guiRenderer.getDeclaredMethod("execute").insertAfter(

@@ -5,10 +5,13 @@ import com.wurmonline.client.game.World;
 import com.wurmonline.client.options.Options;
 import com.wurmonline.client.renderer.ItemPlacer;
 import com.wurmonline.client.renderer.WorldRender;
+import com.wurmonline.client.renderer.Matrix;
 import com.wurmonline.client.renderer.backend.Queue;
+import com.wurmonline.client.renderer.cell.AttachedCellRenderable;
 import com.wurmonline.client.renderer.gui.HeadsUpDisplay;
 import com.wurmonline.client.renderer.model.collada.ColladaModelData;
 import java.lang.reflect.Field;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.logging.Level;
@@ -24,10 +27,12 @@ import org.wuthirdpersonview.core.CameraConfig;
 import org.wuthirdpersonview.core.CameraIntent;
 import org.wuthirdpersonview.core.CameraPose;
 import org.wuthirdpersonview.core.CameraState;
+import org.wuthirdpersonview.core.HolsterSnapshot;
+import org.wuthirdpersonview.core.HolsterState;
 
 public final class WUThirdPersonViewMod
-        implements WurmClientMod, Configurable, PreInitable, Initable, ConsoleListener {
-    public static final String VERSION = "0.2.3";
+        implements org.gotti.wurmunlimited.modloader.interfaces.ModListener, WurmClientMod, Configurable, PreInitable, Initable, ConsoleListener {
+    public static final String VERSION = "0.3.9";
     private static final String[][] KEYBINDER_COMMAND_CATALOG = {
             {"Toggle third-person view", "tp toggle"},
             {"Enable third-person view", "tp on"},
@@ -46,6 +51,11 @@ public final class WUThirdPersonViewMod
             {"Toggle flying freelook", "tp freelook-toggle"},
             {"Enable flying freelook", "tp freelook-on"},
             {"Disable flying freelook", "tp freelook-off"},
+            {"Toggle holster", "tp holster-toggle"},
+            {"Holster equipment", "tp holster-on"},
+            {"Draw equipment", "tp holster-off"},
+            {"Show holster status", "tp holster-status"},
+            {"Open Holster Studio", "tp holster-studio"},
             {"Show camera status", "tp status"},
             {"Enable camera debug", "tp debug on"},
             {"Disable camera debug", "tp debug off"}
@@ -56,9 +66,13 @@ public final class WUThirdPersonViewMod
 
     private CameraConfig config;
     private CameraState state;
+    private HolsterState holsterState;
+    private HolsterProfileStore holsterProfiles;
+    private HolsterStudio holsterStudio;
     private CameraCollisionProbe collision;
     private CameraFieldAccess cameraFields;
     private PlayerHeadAnimator headAnimator;
+    private HolsterArmAnimator holsterAnimator;
     private volatile FreeLookModeIndicator freeLookIndicator;
     private final CameraStateStore stateStore = new CameraStateStore();
     private final KeybinderBridge keybinder = new KeybinderBridge();
@@ -70,6 +84,8 @@ public final class WUThirdPersonViewMod
     private boolean runtimeInitializationFailed;
     private boolean floorClampFailureLogged;
     private volatile boolean indicatorRenderFailureLogged;
+    private volatile boolean holsterAnimationFailureLogged;
+    private volatile boolean holsterStudioGizmoFailureLogged;
 
     public WUThirdPersonViewMod() {
         instance = this;
@@ -96,7 +112,11 @@ public final class WUThirdPersonViewMod
     public synchronized void configure(Properties properties) {
         config = CameraConfig.from(properties);
         state = new CameraState(config);
-        stateStore.load(state);
+        holsterState = new HolsterState(config.holsterDurationSeconds);
+        holsterProfiles = new HolsterProfileStore();
+        holsterProfiles.load();
+        holsterStudio = new HolsterStudio(holsterProfiles);
+        stateStore.load(state, holsterState);
         orbitKeyCode = "NONE".equals(config.orbitKey) ? -1 : Keyboard.getKeyIndex(config.orbitKey);
         if (orbitKeyCode <= 0 && !"NONE".equals(config.orbitKey))
             LOG.warning("Unknown orbitKey '" + config.orbitKey + "'; orbit hold is disabled");
@@ -104,6 +124,7 @@ public final class WUThirdPersonViewMod
 
     @Override
     public void preInit() {
+        org.chamomilo.wurm.update.SharedUpdateHooks.install();
         ensureConfigured();
         try {
             // Keep preInit bytecode-only. Loading any corresponding runtime class
@@ -118,6 +139,7 @@ public final class WUThirdPersonViewMod
 
     @Override
     public void init() {
+        org.chamomilo.wurm.update.SharedUpdateHooks.registerHost("wu-third-person-view");
         ensureConfigured();
         LOG.info("WU-third_person_view armed; runtime initialization is deferred");
     }
@@ -133,6 +155,7 @@ public final class WUThirdPersonViewMod
             mouseSensitivityField.setAccessible(true);
             collision = new CameraCollisionProbe(config);
             headAnimator = new PlayerHeadAnimator(config);
+            holsterAnimator = new HolsterArmAnimator();
             freeLookIndicator = new FreeLookModeIndicator();
             ModConsole.addConsoleListener(this);
             runtimeReady = true;
@@ -176,21 +199,26 @@ public final class WUThirdPersonViewMod
         World world = render.getWorld();
         if (world == null || world.getPlayer() == null) return;
         lastWorld = world;
+        float dt = world.getFrameDelta();
+        updateHolster(world.getPlayer(), dt);
+        if (holsterStudio != null) holsterStudio.tick(world);
         freeLookIndicator.update(world.getHud(), render.isFreeCamera());
         if (render.isFreeCamera()) {
             clampCameraAboveFloor(render, world);
-            stateStore.saveIfDue(state);
+            stateStore.saveIfDue(state, holsterState);
             return;
         }
-        float dt = world.getFrameDelta();
         state.beginFrame(dt);
-        CameraIntent intent = state.intent(render.getPlayerX(),
-                render.getPlayerH() + config.headAnchorVerticalOffset,
-                render.getPlayerY(), world.getPlayerRotX(), world.getPlayerRotY());
+        // calculateCamera has already resolved the animated model's NullCamera0
+        // (and mount carrier offset) into the native camera position. Orbit that
+        // true eye point instead of playerH, which is only the support surface.
+        CameraIntent intent = state.intent(render.getCameraX(),
+                render.getCameraY() + config.headAnchorVerticalOffset,
+                render.getCameraZ(), world.getPlayerRotX(), world.getPlayerRotY());
         if (intent == null) {
             headAnimator.deactivate();
             clampCameraAboveFloor(render, world);
-            stateStore.saveIfDue(state);
+            stateStore.saveIfDue(state, holsterState);
             return;
         }
         headAnimator.update(world.getPlayer(), world.getPlayerRotX(),
@@ -205,8 +233,23 @@ public final class WUThirdPersonViewMod
             }
         }
         clampCameraAboveFloor(render, world);
-        stateStore.saveIfDue(state);
+        stateStore.saveIfDue(state, holsterState);
         debugLog(world, pose);
+    }
+
+    private void updateHolster(PlayerObj player, float deltaSeconds) {
+        if (holsterState == null || player == null) return;
+        if (holsterState.updateTarget(player.hasTarget())) {
+            stateStore.markDirty();
+            output("Holster interrupted: target acquired; drawing equipment");
+        }
+        com.wurmonline.client.renderer.PlayerBodyRenderable body = player.getPlayerBody();
+        boolean hasWeapon = body != null && (body.getEquipment(0) != null
+                || body.getEquipment(1) != null);
+        boolean hasShield = body != null && body.getEquipment(11) != null;
+        holsterState.advance(deltaSeconds, hasWeapon, hasShield);
+        if (holsterAnimator != null && !holsterAnimationFailureLogged)
+            holsterAnimator.update(player, holsterState.snapshot());
     }
 
     private void clampCameraAboveFloor(WorldRender render, World world) {
@@ -337,8 +380,56 @@ public final class WUThirdPersonViewMod
 
     public static void beforePlayerSkinning(ColladaModelData modelData) {
         WUThirdPersonViewMod mod = instance;
-        if (mod != null && mod.headAnimator != null)
-            mod.headAnimator.applyBeforeSkinning(modelData);
+        if (mod == null) return;
+        if (mod.headAnimator != null) mod.headAnimator.applyBeforeSkinning(modelData);
+        if (mod.holsterAnimator != null && !mod.holsterAnimationFailureLogged) {
+            try {
+                mod.holsterAnimator.applyBeforeSkinning(modelData);
+            } catch (Throwable failure) {
+                mod.holsterAnimator.deactivate();
+                mod.holsterAnimationFailureLogged = true;
+                LOG.log(Level.WARNING,
+                        "Holster arm animation failed; equipment transfer remains active",
+                        failure);
+            }
+        }
+    }
+
+    public static HolsterSnapshot holsterSnapshot() {
+        WUThirdPersonViewMod mod = instance;
+        return mod == null || mod.holsterState == null ? null : mod.holsterState.snapshot();
+    }
+
+    static HolsterPlacement holsterPlacement(
+            com.wurmonline.client.renderer.cell.AttachedCellRenderable attachment,
+            org.wuthirdpersonview.core.HolsterItemClass type, int slot) {
+        WUThirdPersonViewMod mod = instance;
+        return mod == null || mod.holsterProfiles == null
+                ? HolsterPlacement.forItem(type, slot)
+                : mod.holsterProfiles.resolve(attachment, type, slot);
+    }
+
+    static void renderHolsterStudioGizmo(AttachedCellRenderable attachment, int slot,
+                                         Queue queue, Matrix anchorMatrix,
+                                         HolsterPlacement placement) {
+        WUThirdPersonViewMod mod = instance;
+        if (mod == null || mod.holsterStudio == null) return;
+        try {
+            mod.holsterStudio.renderGizmo(
+                    attachment, slot, queue, anchorMatrix, placement);
+        } catch (Throwable failure) {
+            // A calibration aid must never disable equipment rendering.
+            if (!mod.holsterStudioGizmoFailureLogged) {
+                mod.holsterStudioGizmoFailureLogged = true;
+                LOG.log(Level.WARNING, "Could not render Holster Studio axes", failure);
+            }
+        }
+    }
+
+    public static boolean handleHolsterStudioResponse(Map<?, ?> values, String button) {
+        WUThirdPersonViewMod mod = instance;
+        return mod != null && mod.holsterStudio != null
+                && mod.holsterStudio.handleResponse(mod.lastWorld, values, button);
     }
 
     @Override
@@ -351,7 +442,9 @@ public final class WUThirdPersonViewMod
         String[] parts = command.isEmpty() ? new String[0] : command.split("\\s+");
         if (parts.length == 1) {
             output("Usage: tp toggle|on|off|zoom-in|zoom-out|zoom <0..1>|reset|"
-                    + "orbit-on|orbit-off|freelook-toggle|freelook-on|freelook-off|status");
+                    + "orbit-on|orbit-off|freelook-toggle|freelook-on|freelook-off|"
+                    + "holster-toggle|holster-on|holster-off|holster-status|"
+                    + "holster-studio|status");
             return true;
         }
         try {
@@ -373,15 +466,26 @@ public final class WUThirdPersonViewMod
             else if ("freelook-toggle".equals(action)) toggleFreelook();
             else if ("freelook-on".equals(action)) setFreelook(true);
             else if ("freelook-off".equals(action)) setFreelook(false);
+            else if ("holster-toggle".equals(action)) toggleHolster();
+            else if ("holster-on".equals(action)) setHolstered(true);
+            else if ("holster-off".equals(action)) setHolstered(false);
+            else if ("holster-studio".equals(action)) {
+                openHolsterStudio();
+                return true;
+            }
+            else if ("holster-status".equals(action)) {
+                outputHolsterStatus();
+                return true;
+            }
             else if ("debug".equals(action) && parts.length >= 3)
                 state.setDebug("on".equalsIgnoreCase(parts[2]));
             else if ("status".equals(action)) {
                 CameraPose pose = state.getLastPose();
                 output(String.format(Locale.ROOT,
                         "3rd person: active=%s zoom=%.2f distance=%.2f "
-                                + "orbit=%s freelook=%s keybinder=%s collision=%s",
+                                + "orbit=%s freelook=%s holster=%s keybinder=%s collision=%s",
                         state.isThirdPersonActive(), state.getZoom(), pose.actualDistance,
-                        state.isOrbitHeld(), isFreelook(), keybinder.isPresent(),
+                        state.isOrbitHeld(), isFreelook(), holsterDescription(), keybinder.isPresent(),
                         collision.backend(lastWorld)));
                 return true;
             } else {
@@ -394,6 +498,61 @@ public final class WUThirdPersonViewMod
             output("Invalid tp command: " + command);
             return true;
         }
+    }
+
+    private void toggleHolster() {
+        boolean target = hasTarget();
+        if (!holsterState.toggle(target)) {
+            output("Cannot holster equipment while a target is selected");
+            return;
+        }
+        stateStore.markDirty();
+        output(holsterState.isDesiredHolstered()
+                ? "Holstering equipment" : "Drawing equipment");
+    }
+
+    private void openHolsterStudio() {
+        if (lastWorld == null || lastWorld.getPlayer() == null) {
+            output("Holster Studio is unavailable before entering the world");
+            return;
+        }
+        if (hasTarget()) {
+            output("Holster Studio is unavailable while a target is selected");
+            return;
+        }
+        holsterState.setHolsteredImmediately(true);
+        stateStore.markDirty();
+        if (holsterStudio == null || !holsterStudio.start(lastWorld))
+            output("Holster Studio requires a weapon, tool, or shield to be equipped");
+    }
+
+    private void setHolstered(boolean value) {
+        if (!holsterState.requestHolstered(value, hasTarget())) {
+            output("Cannot holster equipment while a target is selected");
+            return;
+        }
+        stateStore.markDirty();
+        output(value ? "Holstering equipment" : "Drawing equipment");
+    }
+
+    private boolean hasTarget() {
+        return lastWorld != null && lastWorld.getPlayer() != null
+                && lastWorld.getPlayer().hasTarget();
+    }
+
+    private void outputHolsterStatus() {
+        HolsterSnapshot snapshot = holsterState.snapshot();
+        output(String.format(Locale.ROOT,
+                "Holster: requested=%s transitioning=%s weapon=%.2f shield=%.2f target=%s",
+                snapshot.desiredHolstered, snapshot.isTransitioning(),
+                snapshot.weaponAmount, snapshot.shieldAmount, snapshot.targetPresent));
+    }
+
+    private String holsterDescription() {
+        HolsterSnapshot snapshot = holsterState.snapshot();
+        if (snapshot.isTransitioning())
+            return snapshot.desiredHolstered ? "holstering" : "drawing";
+        return snapshot.desiredHolstered ? "holstered" : "drawn";
     }
 
     private void toggleFreelook() {
@@ -440,4 +599,7 @@ public final class WUThirdPersonViewMod
             LOG.info(message);
         }
     }
-}
+
+    @Override public void modInitialized(org.gotti.wurmunlimited.modloader.interfaces.ModEntry<?> entry) {
+        org.chamomilo.wurm.update.SharedUpdateCoordinator.modInitialized(entry);
+    }}

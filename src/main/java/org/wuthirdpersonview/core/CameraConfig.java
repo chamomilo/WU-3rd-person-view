@@ -27,6 +27,7 @@ public final class CameraConfig {
     public final float orbitReturnSeconds;
     public final float maxOrbitPitchDegrees;
     public final String inputProvider;
+    public final float holsterDurationSeconds;
     public final boolean debug;
 
     private CameraConfig(Properties properties) {
@@ -66,6 +67,8 @@ public final class CameraConfig {
         String provider = text(properties, "inputProvider", "auto").toLowerCase(Locale.ROOT);
         inputProvider = provider.equals("native") || provider.equals("keybinder")
                 ? provider : "auto";
+        holsterDurationSeconds = number(properties, "holsterDurationSeconds", 1.0f,
+                0.4f, 2.0f);
         debug = bool(properties, "debug", false);
     }
 

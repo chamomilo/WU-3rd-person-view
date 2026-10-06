@@ -46,19 +46,22 @@ public class KeybinderRealCodecCompatibilityTest {
             Object catalog = catalogType.getMethod("detect").invoke(null);
             assertTrue((Boolean) catalogType.getMethod("isVisible").invoke(catalog));
             List<?> entries = (List<?>) catalogType.getMethod("getEntries").invoke(catalog);
-            assertEquals(20, entries.size());
+            assertEquals(25, entries.size());
 
             Class<?> entryType = Class.forName(
                     "org.keybinder.wurm.catalog.ThirdPersonViewCommandCatalog$Entry",
                     true, loader);
             Method command = entryType.getMethod("getCommand");
             boolean hasOrbitHold = false;
+            boolean hasHolsterToggle = false;
             for (Object entry : entries) {
                 String value = (String) command.invoke(entry);
                 if ("tp orbit-hold".equals(value)) hasOrbitHold = true;
+                if ("tp holster-toggle".equals(value)) hasHolsterToggle = true;
                 assertTrue(value.startsWith("tp "));
             }
             assertTrue(hasOrbitHold);
+            assertTrue(hasHolsterToggle);
         }
     }
 }

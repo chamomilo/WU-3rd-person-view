@@ -14,10 +14,14 @@ import com.wurmonline.client.game.CaveDataBuffer;
 import com.wurmonline.client.game.PlayerObj;
 import com.wurmonline.client.game.World;
 import com.wurmonline.client.renderer.WorldRender;
+import com.wurmonline.client.renderer.PlayerBodyRenderable;
+import com.wurmonline.client.renderer.Matrix;
+import com.wurmonline.client.renderer.cell.AttachedCellRenderable;
 import com.wurmonline.client.renderer.model.collada.ColladaAnimationJob;
 import com.wurmonline.client.renderer.model.collada.ColladaModelData;
 import com.wurmonline.client.renderer.model.collada.animation.Joint;
 import java.lang.reflect.Field;
+import java.util.Map;
 import java.util.Properties;
 import javax.vecmath.Vector3f;
 import javassist.ClassPool;
@@ -75,17 +79,42 @@ public class PinnedClientContractTest {
                 .getMethod("getWidth"));
         assertNotNull(com.wurmonline.client.renderer.gui.HeadsUpDisplay.class
                 .getMethod("getHeight"));
+        assertNotNull(com.wurmonline.client.renderer.gui.HeadsUpDisplay.class
+                .getMethod("showBml", short.class, String.class, int.class,
+                        int.class, float.class, float.class, boolean.class,
+                        boolean.class, float.class, float.class, float.class,
+                        String.class));
+        assertNotNull(com.wurmonline.client.renderer.gui.HeadsUpDisplay.class
+                .getMethod("getBmlWindow", short.class));
+        assertNotNull(com.wurmonline.client.renderer.gui.WurmComponent.class
+                .getMethod("setPosition", int.class, int.class));
+        assertNotNull(com.wurmonline.client.comm.SimpleServerConnectionClass.class
+                .getMethod("sendBmlResponse", Map.class, String.class));
         ClassPool pool = HookManager.getInstance().getClassPool();
         assertNotNull(pool.get("com.wurmonline.client.renderer.gui.HeadsUpDisplay")
                 .getDeclaredField("eventWindow"));
         assertNotNull(pool.get("com.wurmonline.client.renderer.gui.WurmComponent")
                 .getDeclaredField("y"));
+        assertNotNull(pool.get("com.wurmonline.client.renderer.gui.WurmComponent")
+                .getDeclaredField("x"));
+        assertNotNull(com.wurmonline.client.renderer.backend.Primitive.class
+                .getMethod("setupLineIcosahedron",
+                        com.wurmonline.client.renderer.backend.Primitive.class));
+        assertNotNull(com.wurmonline.client.renderer.backend.Primitive.class
+                .getMethod("setupLineBox",
+                        com.wurmonline.client.renderer.backend.Primitive.class));
+        assertNotNull(com.wurmonline.client.renderer.backend.Queue.class
+                .getMethod("reservePrimitive"));
+        assertNotNull(com.wurmonline.client.renderer.WorldRender.class
+                .getDeclaredField("queueDebug"));
         assertNotNull(pool.get("com.wurmonline.client.renderer.gui.Renderer")
                 .getDeclaredMethod("execute", new CtClass[] {
                         pool.get("java.lang.Object")
                 }));
         assertNotNull(PlayerObj.class.getDeclaredMethod("turn", int.class, int.class,
                 boolean.class));
+        assertNotNull(PlayerObj.class.getMethod("hasTarget"));
+        assertNotNull(PlayerObj.class.getMethod("getPlayerBody"));
         assertNotNull(PlayerObj.class.getDeclaredField("mouseSensitivity"));
         assertNotNull(WurmEventHandler.class.getDeclaredMethod("mouseWheeled",
                 int.class, int.class, int.class));
@@ -101,6 +130,21 @@ public class PinnedClientContractTest {
         assertNotNull(World.class.getDeclaredMethod("getPlayerRotY"));
         assertNotNull(ColladaModelData.class.getDeclaredMethod("calculateSkins",
                 com.wurmonline.client.renderer.model.collada.importer.TriangleMesh.LODLevel.class));
+        assertNotNull(PlayerBodyRenderable.class.getDeclaredMethod("renderEquipment",
+                com.wurmonline.client.renderer.backend.Queue.class, Matrix.class,
+                com.wurmonline.client.renderer.Color.class,
+                com.wurmonline.client.renderer.ModelRenderMode.class));
+        assertNotNull(PlayerBodyRenderable.class.getDeclaredField("playerModel"));
+        assertNotNull(PlayerBodyRenderable.class.getDeclaredField("renderState"));
+        assertNotNull(PlayerBodyRenderable.class.getDeclaredField("equipment"));
+        assertNotNull(PlayerBodyRenderable.class.getMethod("getEquipment", int.class));
+        assertNotNull(PlayerBodyRenderable.class.getMethod("getEquippedTool"));
+        assertNotNull(AttachedCellRenderable.class.getMethod("setNullName", String.class));
+        assertNotNull(AttachedCellRenderable.class.getMethod("getModelMatrix"));
+        assertNotNull(Matrix.class.getMethod("_m30"));
+        assertNotNull(ColladaModelData.class.getMethod("getNullTransformation",
+                String.class,
+                com.wurmonline.client.renderer.model.collada.math.Matrix4f.class));
         assertNotNull(Joint.class.getDeclaredMethod("getBindMatrix"));
         assertTrue(hasMethodNamed(ColladaAnimationJob.class, "applyAnimations"));
         assertNotNull(CaveDataBuffer.class.getDeclaredMethod(

@@ -1,6 +1,6 @@
 # Technical specification: 3rd Person View client mod for Wurm Unlimited
 
-Document version: 2.0
+Document version: 2.1
 Updated: 5 September 2026
 
 ## 1. Purpose
@@ -17,6 +17,7 @@ The camera must:
 - change only boom distance when zooming;
 - allow the player to orbit around the character while holding a configurable key;
 - animate the visible character head from normal look input;
+- provide a local Holster mode with reversible stow and draw animations;
 - provide a separate flying freelook mode that never moves the server-side character;
 - avoid clipping through terrain, cave walls, constructed walls, floors, ceilings, roofs, and other opaque obstacles;
 - keep server-side movement, combat, action range, and line-of-sight mechanics unchanged;
@@ -62,6 +63,7 @@ and [Godot SpringArm3D](https://docs.godotengine.org/en/stable/classes/class_spr
 - `viewYaw` and `viewPitch`: Wurm's native character look direction.
 - `orbitYaw` and `orbitPitch`: temporary independent camera rotation.
 - `camera boom`: the line that passes through the camera and the eye/head anchor, aligned with the current look direction.
+- `holster amount`: normalized equipment transfer progress, where `0` is in hand and `1` is at its carry mount.
 
 ## 4. Camera states
 
@@ -117,6 +119,7 @@ and [Godot SpringArm3D](https://docs.godotengine.org/en/stable/classes/class_spr
 | Orbit without turning | hold `Left Shift` and use look input | Change camera orbit only |
 | Reset orbit | Keybinder preset: `Home` or `tp reset` | Return the camera behind the character |
 | Flying freelook | Keybinder preset: `F8` or `tp freelook-toggle` | Detach or reattach the camera without moving the character |
+| Toggle Holster | user-assigned Keybinder catalog action or `tp holster-toggle` | Stow or draw the local character's combat equipment |
 
 Input requirements:
 
@@ -269,6 +272,86 @@ roofs disabled third person for players on the surface. See the
 - The animation is injected after normal forward kinematics and before skinning, so walking, combat, equipment, and idle animations remain active.
 - Held orbit and flying freelook do not turn the head because they do not change the character's native look direction.
 
+### 9.2. Holster mode
+
+- Holster is a reversible local render state. It never changes the equipped item,
+  combat calculations, action availability, or any server-side state.
+- The target duration is `holsterDurationSeconds`, default `1.0` second.
+- Native idle, walking, running, riding, and other base animations continue to
+  play. A procedural two-bone arm reach is applied after native animation and
+  before skinning, avoiding duplicate locomotion and stance assets.
+- Every item family uses the same overlapping shoulder-lead and elbow-follow
+  sequence established for the two-handed sword. Family-specific preparation
+  directions keep the elbow lateral or forward instead of sending it behind
+  the torso.
+- Procedural elbow flexion is limited to 5--140 degrees and cannot reverse its
+  prepared bend direction. Axial shoulder adjustment is limited to 80 degrees.
+- The reach has zero weight at both endpoints and peaks at the equipment hand-off.
+- Each item drops its hand-specific translation and rotation at the hand-off.
+  Its carry mount is composed directly from the animated spine bone and native
+  item axes; gender-specific scale is retained.
+- Carry transforms distinguish a skeleton mount point from an item model point.
+  The transformed item point must coincide exactly with the skeleton point, so
+  rotations never move the selected visual attachment point away from its mount.
+- The two-handed sword's procedural hand target is independent of that visual
+  attachment point. Its physical handle centre at model `(0.00, 0.03, 0.02)` and
+  positive-Z handle axis are transformed through the complete final carry pose.
+  During the second arm stage, a two-bone solve locks the wrist to the transformed
+  handle centre and aligns the wrist axis with the transformed handle axis.
+- The hand follows a mount-specific path: down and out towards a belt, up and
+  behind towards a shoulder, or around the outside shoulder for a back-mounted shield.
+- Equipment changes continuously between its native hand attachment and the
+  carry attachment; it is never duplicated during the transfer.
+- Short swords, small axes and mauls, knives, and compact tools attach
+  to the belt. Left- and right-hand items use mirrored belt positions.
+- Medium swords, axes, mauls, sickles, and tools attach behind a shoulder with the handle
+  or working end visible above it. A second one-handed item uses the mirrored
+  position to avoid overlap.
+- Two-handed equipment attaches diagonally across the back, with the grip behind
+  the right shoulder and the opposite end towards the left hip.
+- A two-handed sword uses a dedicated vertical centre-back placement with its
+  grip above the head. Outside attack animations it is treated as a one-hand-held
+  item. Its holding arm first rotates at the shoulder while preserving the
+  native elbow bend, rising forwards and stopping eight degrees short of vertical.
+  Shoulder twist aligns the preserved forearm bend with the active item profile.
+  The second stage solves the shoulder and elbow together so the wrist converges
+  exactly on the transformed physical handle behind the head. Around the hand-off,
+  the empty arm begins lowering before the elbow has fully unfolded. These
+  overlaps keep one bone moving through each phase boundary and remove visible pauses.
+- Wurm sword models use local Z as their length axis, with positive Z towards
+  the grip and negative Z towards the blade tip. The default `-90` degree X
+  rotation maps the grip upward and the tip downward. Shield models use XZ as
+  their face plane; the same base X rotation makes that plane vertical.
+- Two one-handed weapons share one transition amount and move synchronously.
+- When both a shield and weapon are equipped, holstering completes the shield
+  stage before the weapon stage. Drawing uses the reverse order: weapon, then shield.
+- Selecting a combat target rejects a new holster request. Acquiring a target
+  while holstered or holstering immediately reverses the state towards drawn.
+- The visual state applies only to the local player. Remote-player replication
+  requires a future server/network extension.
+- An equipment-rendering incompatibility fails open: native in-hand rendering is
+  restored and the failure is logged once.
+
+### 9.3. Holster Studio
+
+- `tp holster-studio` opens a local BML editor when supported equipment is
+  equipped and no combat target is selected.
+- The editor forces a fully carried preview and can cycle through the right-hand,
+  left-hand, and shield slots that are currently equipped.
+- It exposes the skeleton anchor, mount X/Y/Z, item model-point X/Y/Z, and item
+  rotation X/Y/Z. Changes are previewed directly on the rendered character.
+- The selected skeleton mount is marked by an always-visible point and
+  anchor-local X/Y/Z axis lines, coloured red, green, and blue respectively.
+- The BML window remains draggable and preserves its screen position across
+  preview refreshes. A restored position uses the client's normal screen-bound
+  clamping.
+- Profiles are keyed by stable model resource path and equipment slot, allowing
+  the same model to have different left- and right-side placements.
+- Saved profiles are written atomically to
+  `mods/WU-third_person_view/holster-profiles.properties`; closing the editor
+  discards unsaved preview values.
+- Studio BML responses are consumed locally and are never sent to the game server.
+
 ## 10. Mounts and vehicles
 
 - The anchor follows the rider/passenger position rather than the mount's feet or the vehicle origin.
@@ -305,6 +388,7 @@ orbitReturns=true
 orbitReturnSeconds=0.45
 maxOrbitPitchDegrees=35.0
 inputProvider=auto
+holsterDurationSeconds=1.0
 debug=false
 ```
 
@@ -320,6 +404,7 @@ tp zoom-in | zoom-out | zoom <0.0..1.0>
 tp reset
 tp orbit-on | orbit-off | orbit-hold
 tp freelook-toggle | freelook-on | freelook-off
+tp holster-toggle | holster-on | holster-off | holster-status
 tp status
 tp debug on | off
 ```
@@ -343,7 +428,7 @@ Catalog requirements:
 
 - every entry becomes a normal, complete `ConsoleCommandStep`;
 - entries have no Source, Tool, or Target arguments;
-- the catalog covers toggle, on/off, zoom steps and fixed zooms, reset, held orbit, orbit on/off, flying freelook, status, and debug actions;
+- the catalog covers toggle, on/off, zoom steps and fixed zooms, reset, held orbit, orbit on/off, flying freelook, Holster controls and status, camera status, and debug actions;
 - saved bindings retain normal Keybinder conflict and per-character rules;
 - updating the catalog does not create or overwrite user bindings automatically;
 - a malformed or incompatible provider hides only its catalog and does not prevent Keybinder from starting.
@@ -466,14 +551,32 @@ an essential hook cannot be installed, the failure must be visible in
 7. Entering flying freelook shows `FREE LOOK MODE` above the bottom Event window; leaving it removes the marker on the next rendered frame.
 8. The marker stays correctly anchored after a resolution change and does not block mouse interaction beneath it.
 
-### 16.6. Wurm-specific behavior
+### 16.6. Holster mode
+
+1. The toggle completes a stow or draw transition in the configured target duration.
+2. Short items finish on the belt; medium items finish behind a shoulder; two-handed items finish in their specified back placements.
+3. Both one-handed items move synchronously without appearing twice.
+4. With a shield and weapon, stowing uses shield then weapon and drawing uses weapon then shield.
+5. The character's native locomotion remains active throughout the transition and while equipment is carried.
+6. Selecting a target prevents holstering, and target acquisition immediately begins drawing.
+7. The server still considers every item equipped, and another client sees no Holster state change.
+8. The two-handed sword's positive-Z grip is above its negative-Z tip in the
+   final centre-back transform, and a shield's XZ face plane is vertical.
+9. Holster Studio can preview, persist, reload, and remove an exact model-and-slot profile.
+10. Holster Studio marks the selected mount with colour-coded local axes, and
+    using any editor control does not recenter a window that the user moved.
+11. Moving the two-handed sword's visual model point does not move the procedural
+    wrist target away from the physical handle; at the second-stage peak the wrist
+    reaches the transformed handle centre and follows its transformed axis.
+
+### 16.7. Wurm-specific behavior
 
 1. The wheel still rotates an object during item placement.
 2. UI scrolling does not zoom the camera.
 3. Server action range and line-of-sight validation remain unchanged.
 4. Embark, disembark, teleport, surface/cave transition, death, respawn, and reconnect do not leave stale camera coordinates.
 
-### 16.7. Keybinder
+### 16.8. Keybinder
 
 1. The `3rd Person View` catalog appears only when this camera mod is installed.
 2. Every catalog item is a complete command without Source, Tool, or Target fields.
@@ -490,6 +593,8 @@ an essential hook cannot be installed, the failure must be visible in
 - combat-target lock-on;
 - speed- or zoom-dependent FOV;
 - server-enforced third-person visibility restrictions for PvP;
+- replication of the local Holster pose to remote players;
+- individually authored Holster clips for every third-party item model;
 - controller-specific input beyond controls already exposed as normal keybinds.
 
 ## 18. Product decision
@@ -499,3 +604,8 @@ It keeps four concepts separate: native character look direction, user zoom,
 independent held orbit, and temporary collision distance. In normal follow
 mode the camera always lies on the character's eye/head view axis, while zoom
 changes only distance and collision may temporarily shorten that distance.
+
+Holster is implemented as a separate render-only state layered over native
+animation. One shared state machine coordinates arm reach and equipment
+attachment, allowing every locomotion pose to remain authoritative while item
+families select reusable belt, shoulder, diagonal-back, or centre-back mounts.

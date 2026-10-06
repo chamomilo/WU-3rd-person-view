@@ -12,21 +12,33 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.wuthirdpersonview.core.CameraState;
+import org.wuthirdpersonview.core.HolsterState;
 
 final class CameraStateStore {
     private static final Logger LOG = Logger.getLogger(CameraStateStore.class.getName());
     private static final long SAVE_DELAY_NANOS = 750_000_000L;
-    private final Path path = Paths.get("mods", "WU-third_person_view", "state.properties");
+    private final Path path;
     private boolean dirty;
     private long dirtySince;
 
-    void load(CameraState state) {
+    CameraStateStore() {
+        this(Paths.get("mods", "WU-third_person_view", "state.properties"));
+    }
+
+    CameraStateStore(Path path) {
+        this.path = path;
+    }
+
+    void load(CameraState state, HolsterState holster) {
         if (!Files.isRegularFile(path)) return;
         Properties values = new Properties();
         try (InputStream input = Files.newInputStream(path)) {
             values.load(input);
             state.setZoom(parse(values.getProperty("zoom"), state.getZoom(), 0.0f, 1.0f));
             state.setThirdPersonActive(Boolean.parseBoolean(values.getProperty("active", "true")));
+            if (holster != null)
+                holster.setHolsteredImmediately(Boolean.parseBoolean(
+                        values.getProperty("holstered", "false")));
         } catch (Exception failure) {
             LOG.log(Level.WARNING, "Could not load camera state", failure);
         }
@@ -37,14 +49,17 @@ final class CameraStateStore {
         dirtySince = System.nanoTime();
     }
 
-    void saveIfDue(CameraState state) {
-        if (dirty && System.nanoTime() - dirtySince >= SAVE_DELAY_NANOS) save(state);
+    void saveIfDue(CameraState state, HolsterState holster) {
+        if (dirty && System.nanoTime() - dirtySince >= SAVE_DELAY_NANOS)
+            save(state, holster);
     }
 
-    void save(CameraState state) {
+    void save(CameraState state, HolsterState holster) {
         Properties values = new Properties();
         values.setProperty("active", Boolean.toString(state.isThirdPersonActive()));
         values.setProperty("zoom", Float.toString(state.getZoom()));
+        if (holster != null)
+            values.setProperty("holstered", Boolean.toString(holster.isDesiredHolstered()));
         Path temp = path.resolveSibling(path.getFileName() + "." + UUID.randomUUID() + ".tmp");
         try {
             Files.createDirectories(path.toAbsolutePath().getParent());

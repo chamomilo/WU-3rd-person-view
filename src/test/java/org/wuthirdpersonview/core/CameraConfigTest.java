@@ -20,6 +20,7 @@ public class CameraConfigTest {
         values.setProperty("bodyFollowSeconds", "99");
         values.setProperty("surfaceClearance", "99");
         values.setProperty("inputProvider", "mystery");
+        values.setProperty("holsterDurationSeconds", "99");
         CameraConfig config = CameraConfig.from(values);
         assertEquals(0.32f, config.defaultZoom, 0.001f);
         assertEquals(0.5f, config.zoomStep, 0.001f);
@@ -33,5 +34,6 @@ public class CameraConfigTest {
         assertEquals(1.0f, config.bodyFollowSeconds, 0.001f);
         assertEquals(2.0f, config.surfaceClearance, 0.001f);
         assertEquals("auto", config.inputProvider);
+        assertEquals(2.0f, config.holsterDurationSeconds, 0.001f);
     }
 }
