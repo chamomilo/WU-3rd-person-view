@@ -28,6 +28,8 @@ import javassist.CtMethod;
 import javassist.bytecode.CodeAttribute;
 import javassist.bytecode.CodeIterator;
 import javassist.bytecode.Opcode;
+import javassist.expr.ExprEditor;
+import javassist.expr.MethodCall;
 import org.gotti.wurmunlimited.modloader.classhooks.HookManager;
 import org.gotti.wurmunlimited.modloader.interfaces.Initable;
 import org.gotti.wurmunlimited.modloader.interfaces.PreInitable;
@@ -147,11 +149,50 @@ public class PinnedClientContractTest {
                 .getDeclaredMethod("tesselateTerrain"));
         assertNotNull(pool.get("com.wurmonline.client.renderer.cell.CellRenderer")
                 .getDeclaredMethod("updatePos"));
+        assertNotNull(CaveDataBuffer.class.getDeclaredMethod("tileStrip", short.class,
+                short.class, short.class, short.class, int[][].class, short[][].class, byte[][].class));
     }
 
     @Test
     public void javassistHookBodiesCompileAgainstPinnedClient() throws Exception {
         ClientHooks.install();
+
+        CtClass worldRender = HookManager.getInstance().getClassPool().get(
+                "com.wurmonline.client.renderer.WorldRender");
+        CtMethod visibility = worldRender.getDeclaredMethod("computeLayerVisibility");
+        assertTrue("main, reflection and pick visibility must select the camera layer",
+                countRenderFocusCalls(visibility, "layer") > 0);
+        assertTrue("entrance visibility must use the camera tile",
+                countRenderFocusCalls(visibility, "onCaveEntrance") >= 3);
+        assertTrue("world lighting must use the camera layer",
+                countRenderFocusCalls(worldRender.getDeclaredMethod("renderWorld"), "layer") > 0);
+        assertTrue("player model lighting must retain the real player layer",
+                countRenderFocusCalls(worldRender.getDeclaredMethod("renderPlayer"), "layer") == 0);
+
+        CtClass caves = HookManager.getInstance().getClassPool().get(
+                "com.wurmonline.client.renderer.cave.CaveRender");
+        for (String name : new String[] {"prepareRender", "render", "renderSkyOcclusion"}) {
+            CtMethod method = caves.getDeclaredMethod(name);
+            assertTrue("cave grid and boundary must follow camera X in " + name,
+                    countRenderFocusCalls(method, "tileX") > 0);
+            assertTrue("cave grid and boundary must follow camera Y in " + name,
+                    countRenderFocusCalls(method, "tileY") > 0);
+        }
+        CtClass caveTile = HookManager.getInstance().getClassPool().get(
+                "com.wurmonline.client.renderer.cave.CaveTileData");
+        assertTrue("cave face sidedness must follow the camera layer",
+                countRenderFocusCalls(caveTile.getDeclaredMethod("render"), "layer") > 0);
+        assertTrue("camera views must prepare the target cave before portal checks",
+                countRenderFocusCalls(worldRender.getDeclaredMethod("prepareRender"),
+                        "cameraOwnsView") >= 2);
+        CtClass caveBuffer = HookManager.getInstance().getClassPool().get(
+                "com.wurmonline.client.game.CaveDataBuffer");
+        assertTrue(countCalls(caveBuffer.getDeclaredMethod("tileStrip"),
+                "org.wuthirdpersonview.core.CaveDataCoverage", "beforeStrip") > 0);
+        assertTrue(countCalls(caveBuffer.getDeclaredMethod("tileStrip"),
+                "org.wuthirdpersonview.core.CaveDataCoverage", "afterStrip") > 0);
+        assertTrue(countCalls(caveBuffer.getDeclaredMethod("clear"),
+                "org.wuthirdpersonview.core.CaveDataCoverage", "clear") > 0);
 
         CtClass decorations = HookManager.getInstance().getClassPool().get(
                 "com.wurmonline.client.renderer.terrain.decorator.DecorationRenderer");
@@ -200,6 +241,22 @@ public class PinnedClientContractTest {
                     && instructions.byteAt(index + 1) == expected) count++;
         }
         return count;
+    }
+
+    private static int countRenderFocusCalls(CtMethod method, String name) throws Exception {
+        return countCalls(method, "org.wuthirdpersonview.client.RenderFocus", name);
+    }
+
+    private static int countCalls(CtMethod method, final String owner, final String name) throws Exception {
+        final int[] count = {0};
+        method.instrument(new ExprEditor() {
+            @Override
+            public void edit(MethodCall call) {
+                if (owner.equals(call.getClassName())
+                        && name.equals(call.getMethodName())) count[0]++;
+            }
+        });
+        return count[0];
     }
 
     private static boolean hasMethodNamed(Class<?> type, String name) {

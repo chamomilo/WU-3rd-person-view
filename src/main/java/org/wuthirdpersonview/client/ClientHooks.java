@@ -24,6 +24,13 @@ final class ClientHooks {
     static void install() throws Exception {
         exposeModClasses();
         ClassPool pool = HookManager.getInstance().getClassPool();
+        CtClass caveBuffer = pool.get("com.wurmonline.client.game.CaveDataBuffer");
+        caveBuffer.getDeclaredMethod("clear").insertAfter(
+                "{ org.wuthirdpersonview.core.CaveDataCoverage.clear(this); }");
+        caveBuffer.getDeclaredMethod("tileStrip").insertBefore(
+                "{ org.wuthirdpersonview.core.CaveDataCoverage.beforeStrip(this, $1, $2, $3, $4); }");
+        caveBuffer.getDeclaredMethod("tileStrip").insertAfter(
+                "{ org.wuthirdpersonview.core.CaveDataCoverage.afterStrip(this, $1, $2, $3, $4); }");
         CtClass worldRender = pool.get("com.wurmonline.client.renderer.WorldRender");
         worldRender.getDeclaredMethod("calculateCamera").insertBefore(
                 "{ org.wuthirdpersonview.client.WUThirdPersonViewMod.beforeCalculateCamera(this); }");
@@ -93,7 +100,16 @@ final class ClientHooks {
 
     private static void installCameraCentredRendering(ClassPool pool, CtClass worldRender)
             throws Exception {
+        instrumentRenderLayer(worldRender.getDeclaredMethod("computeLayerVisibility"));
+        instrumentRenderLayer(worldRender.getDeclaredMethod("renderWorld"));
         instrumentWorldPosition(worldRender.getDeclaredMethod("tick"));
+
+        CtClass caves = pool.get("com.wurmonline.client.renderer.cave.CaveRender");
+        for (CtMethod method : caves.getDeclaredMethods())
+            instrumentWorldPosition(method);
+        CtClass caveTile = pool.get("com.wurmonline.client.renderer.cave.CaveTileData");
+        instrumentRenderLayer(caveTile.getDeclaredMethod("render"));
+        prepareCavesBeforeVisibility(worldRender.getDeclaredMethod("prepareRender"));
 
         CtClass decorations = pool.get(
                 "com.wurmonline.client.renderer.terrain.decorator.DecorationRenderer");
@@ -118,6 +134,41 @@ final class ClientHooks {
 
         CtClass renderable = pool.get("com.wurmonline.client.renderer.cell.CellRenderable");
         instrumentWorldPosition(renderable.getDeclaredMethod("getSquaredLengthFromPlayer"));
+    }
+
+    /** Portal tests must see the cave tiles at this frame's camera position. */
+    private static void prepareCavesBeforeVisibility(CtMethod prepareRender) throws Exception {
+        prepareRender.instrument(new ExprEditor() {
+            @Override
+            public void edit(MethodCall call) throws javassist.CannotCompileException {
+                if ("com.wurmonline.client.renderer.WorldRender".equals(call.getClassName())
+                        && "calculateCamera".equals(call.getMethodName())) {
+                    call.replace("{ $proceed($$); if (org.wuthirdpersonview.client.RenderFocus"
+                            + ".cameraOwnsView(this)) this.caveRenderer.prepareRender(); }");
+                } else if ("com.wurmonline.client.renderer.cave.CaveRender".equals(call.getClassName())
+                        && "prepareRender".equals(call.getMethodName())) {
+                    call.replace("{ if (!org.wuthirdpersonview.client.RenderFocus"
+                            + ".cameraOwnsView(this)) $proceed($$); }");
+                }
+            }
+        });
+    }
+
+    private static void instrumentRenderLayer(CtMethod method) throws Exception {
+        method.instrument(new ExprEditor() {
+            @Override
+            public void edit(MethodCall call) throws javassist.CannotCompileException {
+                if ("com.wurmonline.client.game.World".equals(call.getClassName())
+                        && "getPlayerLayer".equals(call.getMethodName())) {
+                    call.replace("{ $_ = org.wuthirdpersonview.client.RenderFocus"
+                            + ".layer($0, $proceed($$)); }");
+                } else if ("com.wurmonline.client.renderer.WorldRender".equals(call.getClassName())
+                        && "playerOnCaveEntrance".equals(call.getMethodName())) {
+                    call.replace("{ $_ = org.wuthirdpersonview.client.RenderFocus"
+                            + ".onCaveEntrance($0, $proceed($$)); }");
+                }
+            }
+        });
     }
 
     /** Expands Wurm's compiled 15x15 (radius 7) decoration grid to 17x17. */

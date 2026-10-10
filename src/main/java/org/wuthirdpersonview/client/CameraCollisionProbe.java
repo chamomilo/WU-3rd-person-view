@@ -63,8 +63,8 @@ final class CameraCollisionProbe {
         try {
             CaveDataBuffer cave = world.getCaveBuffer();
             if (cave != null && (world.getPlayerLayer() < 0
-                    || cave.isValid(path.anchorX, path.anchorZ)
-                    || cave.isValid(path.cameraX, path.cameraZ))) {
+                    || CaveBufferAccess.isLoaded(cave, path.anchorX, path.anchorZ)
+                    || CaveBufferAccess.isLoaded(cave, path.cameraX, path.cameraZ))) {
                 caveGeometry.use(cave, world.getNearTerrainBuffer());
                 return CaveVolumeClipper.safeDistance(caveGeometry, path,
                         config.cameraRadius + config.collisionMargin, config.surfaceClearance);
@@ -82,7 +82,7 @@ final class CameraCollisionProbe {
 
     float constrainedHeight(World world, float x, float y, float z) {
         CaveDataBuffer cave = world.getCaveBuffer();
-        if (cave != null && (world.getPlayerLayer() < 0 || cave.isValid(x, z))) {
+        if (cave != null && (world.getPlayerLayer() < 0 || CaveBufferAccess.isLoaded(cave, x, z))) {
             caveGeometry.use(cave, world.getNearTerrainBuffer());
             return CaveVolumeClipper.clampHeight(caveGeometry, x, y, z,
                     config.cameraRadius + config.collisionMargin, config.surfaceClearance);
@@ -133,7 +133,7 @@ final class CameraCollisionProbe {
         try {
             if (world.getPlayerLayer() < 0) {
                 CaveDataBuffer cave = world.getCaveBuffer();
-                if (cave == null || !cave.isValid(x, z)) return Float.NaN;
+                if (!CaveBufferAccess.isLoaded(cave, x, z)) return Float.NaN;
                 floor = cave.getInterpolatedFloor(x, z);
             } else {
                 NearTerrainDataBuffer terrain = world.getNearTerrainBuffer();
@@ -171,7 +171,7 @@ final class CameraCollisionProbe {
             terrain = surface;
         }
 
-        @Override public boolean isLoaded(float x, float z) { return cave.isValid(x, z); }
+        @Override public boolean isLoaded(float x, float z) { return CaveBufferAccess.isLoaded(cave, x, z); }
         @Override public boolean isOpen(int x, int z) { return !Tiles.isSolidCave(cave.getTileType(x, z)); }
         @Override public boolean isExit(int x, int z) { return cave.getTileType(x, z) == Tiles.Tile.TILE_CAVE_EXIT; }
         @Override public float floor(float x, float z) { return cave.getInterpolatedFloor(x, z); }

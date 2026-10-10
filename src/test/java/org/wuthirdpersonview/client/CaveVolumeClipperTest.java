@@ -90,6 +90,32 @@ public class CaveVolumeClipperTest {
         assertEquals(1.65f, safe(cave, path(2, 2, 2, 8, 2, 2)), 0.001f);
     }
 
+    @Test public void canLeaveOneCaveAndEnterASeparateLoadedCaveThroughItsExit() {
+        Cave cave = separateCaves();
+        CameraIntent leave = path(2, 2, 2, 2, 12, 2);
+        CameraIntent fly = path(2, 12, 2, 82, 12, 2);
+        CameraIntent enter = path(82, 12, 2, 82, 2, 2);
+        CameraIntent inside = path(82, 2, 2, 86, 2, 2);
+        for (CameraIntent movement : new CameraIntent[] {leave, fly, enter, inside})
+            assertEquals(movement.rayLength, safe(cave, movement), 0.001f);
+        assertEquals(0.65f, safe(cave, path(86, 2, 2, 86, 12, 2)), 0.001f);
+    }
+
+    @Test public void separateUnloadedCaveStillBlocksEntryBelowTheSurface() {
+        Cave cave = new Cave() {
+            @Override public boolean isLoaded(float x, float z) { return x < 80; }
+        }.exit(20, 0);
+        assertEquals(1.65f, safe(cave, path(82, 12, 2, 82, 2, 2)), 0.001f);
+    }
+
+    private static Cave separateCaves() {
+        return new Cave() {
+            @Override public boolean isOpen(int x, int z) {
+                return z == 0 && ((x >= 0 && x <= 2) || (x >= 20 && x <= 22));
+            }
+        }.exit(0, 0).exit(20, 0);
+    }
+
     @Test public void missingCeilingDataIsNotAnOpening() {
         Cave cave = new Cave() {
             @Override public float ceiling(float x, float z) { return Float.NaN; }

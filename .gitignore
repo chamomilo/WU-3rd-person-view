@@ -7,9 +7,6 @@ local.properties
 mods/WU-third_person_view/state.properties
 mods/*/*.jar
 
-# Standalone Holster development is not part of this repository.
-/holster-weapons/
-
 *.log
 hs_err_pid*.log
 *.zip

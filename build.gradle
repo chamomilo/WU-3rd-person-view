@@ -1,7 +1,7 @@
 apply plugin: 'java'
 
 group = 'org.wuthirdpersonview'
-version = '0.4.4'
+version = '0.4.8'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -32,18 +32,35 @@ dependencies {
 
 jar {
     archiveName "${project.name}.jar"
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
 }
 
 task verifyClientContract(type: Test) {
     include '**/PinnedClientContractTest.class'
 }
 
-task dist(type: Zip, dependsOn: [test, jar]) {
+task generateReadmeText {
+    inputs.file 'README.md'
+    outputs.file "${buildDir}/docs/README.txt"
+    doLast {
+        def text = file('README.md').getText('UTF-8')
+                .replaceAll('(?m)^#{1,6} +', '')
+                .replaceAll('(?m)^```[^\\r\\n]*\\r?\\n?', '')
+                .replaceAll('`([^`]+)`', '$1')
+                .replaceAll('\\[([^\\]]+)\\]\\(([^)]+)\\)', '$1 ($2)')
+        def output = outputs.files.singleFile
+        output.parentFile.mkdirs()
+        output.setText(text, 'UTF-8')
+    }
+}
+
+task dist(type: Zip, dependsOn: [test, jar, generateReadmeText]) {
     into('mods') {
         from('mods') { include '*.properties' }
         into(project.name) {
             from jar
-            from 'README.md'
+            from generateReadmeText
             from 'LICENSE'
             into('keybinder') {
                 from 'src/main/resources/keybinder'
@@ -52,6 +69,8 @@ task dist(type: Zip, dependsOn: [test, jar]) {
         }
     }
     archiveName "${project.name}-${project.version}.zip"
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
 }
 
 task verifyDistArchive(dependsOn: dist) {
@@ -61,12 +80,33 @@ task verifyDistArchive(dependsOn: dist) {
                 "mods/${project.name}.properties",
                 "mods/${project.name}/${project.name}.jar",
                 "mods/${project.name}/keybinder/WU-third_person_view.keybinder",
-                "mods/${project.name}/README.md",
+                "mods/${project.name}/README.txt",
                 "mods/${project.name}/LICENSE"
         ].each { expected ->
             if (archive.matching { include expected }.files.empty) {
                 throw new GradleException("Distribution is missing ${expected}")
             }
+        }
+        archive.visit { entry ->
+            if (!entry.directory && entry.relativePath.pathString.toLowerCase(java.util.Locale.ROOT).endsWith('.md')) {
+                throw new GradleException('Markdown must not be included in the installable ZIP: ' + entry.relativePath)
+            }
+        }
+        archive.matching { include '**/*.jar' }.each { packagedJar ->
+            def nested = new java.util.zip.ZipFile(packagedJar)
+            try {
+                java.util.Collections.list(nested.entries()).each { entry ->
+                    if (!entry.directory && entry.name.toLowerCase(java.util.Locale.ROOT).endsWith('.md')) {
+                        throw new GradleException('Markdown must not be included in a packaged JAR: ' + entry.name)
+                    }
+                }
+            } finally { nested.close() }
+        }
+        def packagedReadme = archive.matching {
+            include "mods/${project.name}/README.txt"
+        }.singleFile
+        if (packagedReadme.getText('UTF-8') != generateReadmeText.outputs.files.singleFile.getText('UTF-8')) {
+            throw new GradleException('Packaged README.txt differs from the generated README')
         }
         def packagedProperties = archive.matching {
             include "mods/${project.name}.properties"
