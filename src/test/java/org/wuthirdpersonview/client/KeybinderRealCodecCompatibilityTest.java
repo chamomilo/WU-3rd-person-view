@@ -42,26 +42,24 @@ public class KeybinderRealCodecCompatibilityTest {
         try (URLClassLoader loader = new URLClassLoader(new URL[] { jar.toUri().toURL() },
                 getClass().getClassLoader())) {
             Class<?> catalogType = Class.forName(
-                    "org.keybinder.wurm.catalog.ThirdPersonViewCommandCatalog", true, loader);
-            Object catalog = catalogType.getMethod("detect").invoke(null);
+                    "org.keybinder.wurm.catalog.ModCommandCatalog", true, loader);
+            Object catalog = catalogType.getMethod("load", Class.class, String.class)
+                    .invoke(null, WUThirdPersonViewMod.class, "Third Person View");
             assertTrue((Boolean) catalogType.getMethod("isVisible").invoke(catalog));
             List<?> entries = (List<?>) catalogType.getMethod("getEntries").invoke(catalog);
-            assertEquals(25, entries.size());
+            assertEquals(20, entries.size());
 
             Class<?> entryType = Class.forName(
-                    "org.keybinder.wurm.catalog.ThirdPersonViewCommandCatalog$Entry",
+                    "org.keybinder.wurm.catalog.ModCommandCatalog$Entry",
                     true, loader);
             Method command = entryType.getMethod("getCommand");
             boolean hasOrbitHold = false;
-            boolean hasHolsterToggle = false;
             for (Object entry : entries) {
                 String value = (String) command.invoke(entry);
                 if ("tp orbit-hold".equals(value)) hasOrbitHold = true;
-                if ("tp holster-toggle".equals(value)) hasHolsterToggle = true;
                 assertTrue(value.startsWith("tp "));
             }
             assertTrue(hasOrbitHold);
-            assertTrue(hasHolsterToggle);
         }
     }
 }

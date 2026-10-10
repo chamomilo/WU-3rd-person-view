@@ -11,6 +11,13 @@ public final class CameraIntent {
     public final float pitchDegrees;
     public final float rayLength;
 
+    public static CameraIntent between(float startX, float startY, float startZ,
+                                       float endX, float endY, float endZ) {
+        float dx = endX - startX, dy = endY - startY, dz = endZ - startZ;
+        return new CameraIntent(startX, startY, startZ, endX, endY, endZ,
+                0.0f, 0.0f, (float) Math.sqrt(dx * dx + dy * dy + dz * dz));
+    }
+
     CameraIntent(float anchorX, float anchorY, float anchorZ,
                  float cameraX, float cameraY, float cameraZ,
                  float yawDegrees, float pitchDegrees, float rayLength) {

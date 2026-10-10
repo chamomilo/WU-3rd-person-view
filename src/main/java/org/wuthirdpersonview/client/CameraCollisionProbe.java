@@ -9,6 +9,7 @@ import com.wurmonline.client.collision.advanced.Transform;
 import com.wurmonline.client.game.CaveDataBuffer;
 import com.wurmonline.client.game.NearTerrainDataBuffer;
 import com.wurmonline.client.game.World;
+import com.wurmonline.mesh.Tiles;
 import java.lang.reflect.Field;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -21,7 +22,7 @@ import org.wuthirdpersonview.core.CameraIntent;
 final class CameraCollisionProbe {
     private static final Logger LOG = Logger.getLogger(CameraCollisionProbe.class.getName());
     private final CameraConfig config;
-    private final CaveBufferWallGrid caveWalls = new CaveBufferWallGrid();
+    private final CaveBufferGeometry caveGeometry = new CaveBufferGeometry();
     private Field collisionViewField;
     private boolean advancedUnavailableLogged;
     private boolean collisionFailureLogged;
@@ -45,7 +46,7 @@ final class CameraCollisionProbe {
                 safe = Math.min(safe, sweep(view, world.getPlayerLayer(), intent));
             } else if (!advancedUnavailableLogged) {
                 advancedUnavailableLogged = true;
-                LOG.warning("Advanced collision manager is not active; using terrain-only fallback");
+                LOG.warning("Advanced collision manager is not active; using loaded terrain/cave geometry");
             }
         } catch (Throwable failure) {
             if (!collisionFailureLogged) {
@@ -53,25 +54,40 @@ final class CameraCollisionProbe {
                 LOG.log(Level.WARNING, "Camera collision sweep failed; using terrain fallback", failure);
             }
         }
-        if (world.getPlayerLayer() < 0) {
-            try {
-                CaveDataBuffer cave = world.getCaveBuffer();
-                if (cave != null) {
-                    caveWalls.use(cave);
-                    safe = Math.min(safe, CaveWallClipper.safeDistance(
-                            caveWalls, intent, config.cameraRadius + config.collisionMargin));
-                }
-            } catch (Throwable failure) {
-                if (!collisionFailureLogged) {
-                    collisionFailureLogged = true;
-                    LOG.log(Level.WARNING,
-                            "Cave wall camera clipping failed; using advanced collision only",
-                            failure);
-                }
-            }
-        }
-        safe = Math.min(safe, terrainDistance(world, intent));
+        safe = Math.min(safe, geometryDistance(world, intent));
         return CameraMathSupport.clamp(safe, 0.0f, intent.rayLength);
+    }
+
+    /** Also used for native free-camera movement, from its position before the frame. */
+    float geometryDistance(World world, CameraIntent path) {
+        try {
+            CaveDataBuffer cave = world.getCaveBuffer();
+            if (cave != null && (world.getPlayerLayer() < 0
+                    || cave.isValid(path.anchorX, path.anchorZ)
+                    || cave.isValid(path.cameraX, path.cameraZ))) {
+                caveGeometry.use(cave, world.getNearTerrainBuffer());
+                return CaveVolumeClipper.safeDistance(caveGeometry, path,
+                        config.cameraRadius + config.collisionMargin, config.surfaceClearance);
+            }
+            if (world.getPlayerLayer() < 0) return 0.0f;
+            return terrainDistance(world, path);
+        } catch (RuntimeException failure) {
+            if (!collisionFailureLogged) {
+                collisionFailureLogged = true;
+                LOG.log(Level.WARNING, "Cannot read camera boundary geometry; holding camera", failure);
+            }
+            return 0.0f;
+        }
+    }
+
+    float constrainedHeight(World world, float x, float y, float z) {
+        CaveDataBuffer cave = world.getCaveBuffer();
+        if (cave != null && (world.getPlayerLayer() < 0 || cave.isValid(x, z))) {
+            caveGeometry.use(cave, world.getNearTerrainBuffer());
+            return CaveVolumeClipper.clampHeight(caveGeometry, x, y, z,
+                    config.cameraRadius + config.collisionMargin, config.surfaceClearance);
+        }
+        return clampHeight(y, minimumCameraHeight(world, x, z));
     }
 
     private float sweep(CollisionView view, int layer, CameraIntent intent) {
@@ -146,19 +162,23 @@ final class CameraCollisionProbe {
         return advanced ? "advanced+terrain" : "terrain-only";
     }
 
-    private static final class CaveBufferWallGrid implements CaveWallClipper.WallGrid {
+    private static final class CaveBufferGeometry implements CaveVolumeClipper.Geometry {
         private CaveDataBuffer cave;
+        private NearTerrainDataBuffer terrain;
 
-        private void use(CaveDataBuffer value) { cave = value; }
-
-        @Override
-        public boolean hasNorthWall(int tileX, int tileY) {
-            return cave.shouldHaveNorthWall(tileX, tileY);
+        private void use(CaveDataBuffer value, NearTerrainDataBuffer surface) {
+            cave = value;
+            terrain = surface;
         }
 
-        @Override
-        public boolean hasWestWall(int tileX, int tileY) {
-            return cave.shouldHaveWestWall(tileX, tileY);
+        @Override public boolean isLoaded(float x, float z) { return cave.isValid(x, z); }
+        @Override public boolean isOpen(int x, int z) { return !Tiles.isSolidCave(cave.getTileType(x, z)); }
+        @Override public boolean isExit(int x, int z) { return cave.getTileType(x, z) == Tiles.Tile.TILE_CAVE_EXIT; }
+        @Override public float floor(float x, float z) { return cave.getInterpolatedFloor(x, z); }
+        @Override public float ceiling(float x, float z) { return cave.getInterpolatedCeiling(x, z); }
+        @Override public float surface(float x, float z) {
+            return terrain != null && terrain.isValid(x, z)
+                    ? terrain.getInterpolatedHeight(x, z) : Float.NaN;
         }
     }
 

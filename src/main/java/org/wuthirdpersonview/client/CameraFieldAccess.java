@@ -33,9 +33,10 @@ final class CameraFieldAccess {
         pitch.setFloat(render, pose.pitchRadians);
     }
 
-    void raiseTo(WorldRender render, float minimumHeight) throws IllegalAccessException {
-        float currentHeight = y.getFloat(render);
-        float clampedHeight = CameraCollisionProbe.clampHeight(currentHeight, minimumHeight);
-        if (clampedHeight != currentHeight) y.setFloat(render, clampedHeight);
+    void moveTo(WorldRender render, float cameraX, float cameraY, float cameraZ)
+            throws IllegalAccessException {
+        x.setFloat(render, cameraX);
+        y.setFloat(render, cameraY);
+        z.setFloat(render, cameraZ);
     }
 }

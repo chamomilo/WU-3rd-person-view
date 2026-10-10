@@ -16,7 +16,7 @@ public class KeybinderCommandCatalogTest {
         String[][] rows = WUThirdPersonViewMod.getKeybinderCommandCatalog();
         Set<String> commands = new HashSet<String>();
 
-        assertEquals(25, rows.length);
+        assertEquals(20, rows.length);
         for (String[] row : rows) {
             assertEquals(2, row.length);
             assertFalse(row[0].trim().isEmpty());
@@ -36,11 +36,7 @@ public class KeybinderCommandCatalogTest {
         assertTrue(commands.contains("tp freelook-toggle"));
         assertTrue(commands.contains("tp freelook-on"));
         assertTrue(commands.contains("tp freelook-off"));
-        assertTrue(commands.contains("tp holster-toggle"));
-        assertTrue(commands.contains("tp holster-on"));
-        assertTrue(commands.contains("tp holster-off"));
-        assertTrue(commands.contains("tp holster-status"));
-        assertTrue(commands.contains("tp holster-studio"));
+        assertFalse(commands.contains("tp holster-toggle"));
         assertTrue(commands.contains("tp status"));
     }
 
