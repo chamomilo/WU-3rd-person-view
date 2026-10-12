@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.9 — 2026-10-12
+
+- Update the complete embedded Chamomilo updater to 1.4.1 and Chamomilo UI
+  to 0.4.11. Enable early election of the newest compatible updater installed
+  across participating mods, retaining coordinator protocol 1.
+- Include the current updater's mod logos, translated interface and improved
+  window sizing and minimize behavior.
+- Replace the README with an illustrated camera and controls guide. Ship a
+  separate plain-text installation guide in the release archive.
+- Limit the installable ZIP to the mod JAR, descriptor, Keybinder preset and
+  README.txt. Keep the complete mod license inside the JAR.
+
 ## 0.4.8 — 2026-10-10
 
 - Embed the complete canonical Chamomilo updater 1.2.7 with Chamomilo UI
@@ -8,9 +20,6 @@
   fixes from local builds 0.4.5–0.4.7 in this public release.
 - Replace the installation guide with a concise README. Generate README.txt
   for the installable ZIP and reject Markdown in the ZIP and its nested JARs.
-- Archive obsolete development specifications and the separate Holster project
-  outside the camera working directory. Keep only camera source, build inputs,
-  release documentation and current build outputs in this project.
 
 ## 0.4.7 — 2026-10-10
 
@@ -46,9 +55,6 @@
   changing their user language. Off preserves each mod's own language choice.
 - Coordinate typography across updater actions and language choices, including
   the detached dropdown popup, and use the current public mod catalogue.
-- Remove obsolete local build caches and temporary artifacts, consolidate
-  ignore rules and keep the separate Holster development project outside the
-  camera mod's published source tree.
 
 ## 0.4.3
 

@@ -3,3 +3,6 @@
 *.jar binary
 *.keybinder text eol=lf
 *.properties text eol=lf
+*.txt text eol=lf
+*.svg text eol=lf
+*.png binary

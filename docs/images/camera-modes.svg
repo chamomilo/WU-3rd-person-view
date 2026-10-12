@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+  <title id="title">Third Person View camera modes</title>
+  <desc id="desc">A schematic of a camera behind a character, an orbit camera around a stationary character, and a camera flying away independently.</desc>
+  <defs>
+    <linearGradient id="background" x2="0" y2="1">
+      <stop stop-color="#1b242b"/>
+      <stop offset="1" stop-color="#11181e"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 10 5 0 10Z" fill="#edc982"/>
+    </marker>
+    <g id="character" fill="#eee6d5">
+      <circle cy="-38" r="15"/>
+      <path d="M-14-17Q0-23 14-17L23 29H-23Z"/>
+      <path d="M-13 27-18 58M13 27 18 58" stroke="#eee6d5" stroke-width="10" stroke-linecap="round"/>
+    </g>
+    <g id="camera" stroke="#edc982" stroke-width="3" fill="#26313a" stroke-linejoin="round">
+      <rect x="-24" y="-16" width="38" height="32" rx="5"/>
+      <path d="M14-8 30-17V17L14 8Z"/>
+      <circle cx="-7" r="7" fill="#edc982" stroke="none"/>
+    </g>
+  </defs>
+  <rect width="1200" height="430" rx="20" fill="url(#background)"/>
+  <g fill="#172027" stroke="#46505a">
+    <rect x="20" y="20" width="374" height="390" rx="14"/>
+    <rect x="413" y="20" width="374" height="390" rx="14"/>
+    <rect x="806" y="20" width="374" height="390" rx="14"/>
+  </g>
+  <g font-family="Segoe UI,Arial,sans-serif" text-anchor="middle">
+    <g fill="#edc982" font-size="15" font-weight="700" letter-spacing="3">
+      <text x="207" y="57">01 / FOLLOW</text>
+      <text x="600" y="57">02 / ORBIT</text>
+      <text x="993" y="57">03 / FLYING FREELOOK</text>
+    </g>
+    <g fill="#f4efe4" font-size="27" font-weight="600">
+      <text x="207" y="96">See your character</text>
+      <text x="600" y="96">Look all around</text>
+      <text x="993" y="96">Explore the view</text>
+    </g>
+    <g stroke="#43515b" stroke-width="2" fill="none">
+      <path d="M63 285H348M454 285H746M847 285H1139"/>
+      <path d="M73 296H333M465 296H732M858 296H1125" opacity=".4"/>
+    </g>
+    <use href="#character" transform="translate(257 227)"/>
+    <use href="#camera" transform="translate(115 225)"/>
+    <path d="M153 225H214" stroke="#edc982" stroke-width="3" stroke-dasharray="5 6" marker-end="url(#arrow)"/>
+    <use href="#character" transform="translate(600 222)"/>
+    <path d="M498 233C463 143 657 119 706 198" fill="none" stroke="#edc982" stroke-width="3" marker-end="url(#arrow)"/>
+    <path d="M708 237C691 302 533 317 495 269" fill="none" stroke="#edc982" stroke-width="2" stroke-dasharray="5 7"/>
+    <use href="#camera" transform="translate(702 228) rotate(-18)"/>
+    <use href="#character" transform="translate(904 227)" opacity=".65"/>
+    <path d="M949 247C1008 240 1002 176 1081 164" fill="none" stroke="#edc982" stroke-width="3" stroke-dasharray="5 7" marker-end="url(#arrow)"/>
+    <use href="#camera" transform="translate(1099 147) rotate(-12)"/>
+    <g fill="#ddd5c4" font-size="18">
+      <text x="207" y="334">Smooth zoom · 1.20–12 m</text>
+      <text x="600" y="334">Hold Left Shift to orbit</text>
+      <text x="993" y="334">Character stays in place</text>
+    </g>
+    <g fill="#9daeb9" font-size="16">
+      <text x="207" y="372">Mouse wheel / tp toggle</text>
+      <text x="600" y="372">Release to return behind</text>
+      <text x="993" y="372">tp freelook-toggle</text>
+    </g>
+  </g>
+</svg>
