@@ -1,7 +1,7 @@
 apply plugin: 'java'
 
 group = 'org.wuthirdpersonview'
-version = '0.4.9'
+version = '0.5.0'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8

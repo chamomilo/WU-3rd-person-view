@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 — 2026-10-13
+
+- Embed Chamomilo updater 1.5.0 with Chamomilo UI 0.4.11, retaining protocol 1
+  and early selection of the newest compatible module.
+- Expose all 24 camera settings in the shared registry's native Settings editor
+  with hover help, strict validation, automatic saving and live application.
+- Preserve view mode, zoom and orbit direction when changing camera tuning.
+  Apply explicit view and zoom changes immediately and remember them.
+- Accept exact minimum gaps between camera distances and first-person thresholds
+  without false validation failures from floating-point rounding.
+- Include the updater's restart notices and native quit confirmation for other
+  participating mods with startup-only settings, plus automatic logo retries.
+- Refresh the illustrated README and the plain-text installation guide. Retain
+  the four-file release ZIP with the complete mod license inside the JAR.
+
 ## 0.4.9 — 2026-10-12
 
 - Update the complete embedded Chamomilo updater to 1.4.1 and Chamomilo UI

@@ -2,7 +2,7 @@ package org.wuthirdpersonview.core;
 
 public final class CameraState {
     private static final float MINIMUM_ZOOM_EPSILON = 0.001f;
-    private final CameraConfig config;
+    private CameraConfig config;
     private boolean thirdPersonActive;
     private float zoom;
     private float rememberedZoom;
@@ -25,6 +25,13 @@ public final class CameraState {
     }
 
     public void toggle() { setThirdPersonActive(!thirdPersonActive); }
+
+    /** Refresh tuning without losing the current zoom, enabled state or orbit direction. */
+    public void reconfigure(CameraConfig next) {
+        config = next;
+        orbitPitchDegrees = CameraMath.clamp(orbitPitchDegrees,-next.maxOrbitPitchDegrees,next.maxOrbitPitchDegrees);
+        resetViewTransition();
+    }
 
     public void setThirdPersonActive(boolean active) {
         if (thirdPersonActive == active) return;

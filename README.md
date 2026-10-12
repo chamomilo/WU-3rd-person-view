@@ -7,7 +7,8 @@
 **See your character. Orbit freely. Fly through the loaded world.**
 
 Third Person View adds an adjustable third-person camera, held orbit and flying
-freelook to the **Wurm Unlimited client**. Current release: **0.4.9**.
+freelook to the **Wurm Unlimited client**. Tune the camera during play from the
+shared mod registry. Current release: **0.5.0**.
 
 **[Download the latest release ZIP](https://github.com/chamomilo/WU-3rd-person-view/releases/latest)**
  · [Release notes](CHANGELOG.md) · [Installation guide](README.txt)
@@ -28,6 +29,8 @@ freelook to the **Wurm Unlimited client**. Current release: **0.4.9**.
 - **World-aware camera:** terrain, vegetation, objects, lighting and cave
   visibility follow the camera within the world data already loaded by Wurm.
   Cave floors, ceilings and solid walls constrain movement.
+- **Settings during play:** change camera tuning, head animation, orbit and
+  input options from one native settings window with explanations for each field.
 
 ## Install
 
@@ -92,27 +95,54 @@ movement for precision. Leaving freelook restores the previous view mode.
 | `tp status` | Show the current camera state |
 | `tp debug on`, `tp debug off` | Enable or disable diagnostic logging |
 
-## Settings and updates
+## Change settings during play
 
-Edit `mods/WU-third_person_view.properties` while the client is closed to adjust
-zoom, smoothing, collision, head animation and orbit. View mode and zoom are
-saved separately in `mods/WU-third_person_view/state.properties`.
+Open **Mod updates** from Wurm's menu, find **Third Person View** in the shared
+registry and click **Settings**.
 
-Release 0.4.9 embeds **Chamomilo updater 1.4.1** with **Chamomilo UI 0.4.11**.
+![Third Person View settings window with camera and head animation controls](docs/images/settings.png)
+
+*Native settings window rendered with the mod's actual parameter schema.*
+
+The editor exposes **24 camera settings**, grouped under Camera, Head animation,
+Smoothing and collision, Orbit, Input and Advanced. Hover a label or dropdown
+for help. Valid edits save automatically and apply during play; press Enter to
+commit a text field immediately. Invalid values stay marked for correction.
+
+Changing tuning preserves the current view mode, zoom and orbit direction.
+**Third person enabled** switches the view; **Default zoom** changes the current
+distance without switching first/third-person mode. See the
+[settings guide](docs/SETTINGS.md) for ranges and storage details.
+
+Saved editor overrides live in
+`%USERPROFILE%/.chamomilo/mod-settings/wu-third-person-view.properties` and take
+precedence over the mod descriptor. You can also edit
+`mods/WU-third_person_view.properties` while the client is closed. View mode and
+zoom are remembered in `mods/WU-third_person_view/state.properties`.
+
+## Shared updater
+
+Release 0.5.0 embeds **Chamomilo updater 1.5.0** with **Chamomilo UI 0.4.11**.
 Participating mods share one update registry; the newest compatible embedded
 updater is selected at startup. The registry shows mod logos, checks GitHub
 releases and opens release pages. **Install release ZIPs manually.**
 
 The shared language selector supports English, Brazilian Portuguese, German
 and Russian and applies immediately to capable installed mods. Its initial
-choice follows a supported OS language, with English fallback. Camera commands
-and camera messages remain in English.
+choice follows a supported OS language, with English fallback. Window controls
+follow that shared language; camera setting labels, help and console messages
+remain in English.
+
+For participating mods with startup-only settings, a saved change shows a restart
+notice. **Continue configuring** keeps the client running; **Exit game** saves
+valid pending edits and opens Wurm's normal quit confirmation. Third Person View's
+camera settings apply immediately.
 
 ## Troubleshooting and limits
 
 - **Unknown `tp` command:** enter the world first, check the extraction paths
   and `client.log`, then restart the entire client. Initialization logs
-  `WU-third_person_view 0.4.9 hooks installed` and
+  `WU-third_person_view 0.5.0 hooks installed` and
   `WU-third_person_view ready`.
 - **Camera stops at a boundary:** Wurm streams world data around the character.
   Moving the camera does not request a new region. A separate cave is accessible
@@ -139,7 +169,7 @@ Set `WURM_JFX`, `WURM_JAVAFX_JAR` or `-PwurmJavaFxJar` to a JavaFX 8
 
 The build checks the complete updater, client contracts, exact embedded module
 contents and the four-file ZIP layout. Output:
-`build/distributions/WU-third_person_view-0.4.9.zip`.
+`build/distributions/WU-third_person_view-0.5.0.zip`.
 Rendering and camera transitions also need testing in a running client.
 
 ## License

@@ -8,6 +8,15 @@ import java.util.Properties;
 import org.junit.Test;
 
 public class CameraStateTest {
+    @Test public void liveTuningPreservesZoomEnabledStateAndOrbit() {
+        CameraState state=new CameraState(instantConfig());state.setZoom(.7f);
+        state.setOrbitHeld(true);state.addOrbitInput(20,10);state.setThirdPersonActive(false);
+        Properties values=new Properties();values.setProperty("zoomStep","0.2");
+        state.reconfigure(CameraConfig.from(values));
+        assertFalse(state.isThirdPersonActive());assertEquals(.7f,state.getZoom(),.0001f);
+        assertEquals(20,state.getOrbitYawDegrees(),.0001f);assertEquals(10,state.getOrbitPitchDegrees(),.0001f);
+        assertEquals(.2f,state.getConfig().zoomStep,.0001f);
+    }
     private static CameraConfig instantConfig() {
         Properties values = new Properties();
         values.setProperty("zoomSmoothingSeconds", "0");

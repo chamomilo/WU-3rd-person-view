@@ -1,4 +1,4 @@
-Third Person View 0.4.9
+Third Person View 0.5.0
 Third-person, orbit and flying cameras for the Wurm Unlimited client.
 
 Download and illustrated guide:
@@ -75,11 +75,28 @@ CONSOLE COMMANDS
 
 SETTINGS AND UPDATES
 
-Edit mods/WU-third_person_view.properties while the client is closed.
-Settings cover zoom, smoothing, collision, head animation and orbit.
-View mode and zoom are saved in mods/WU-third_person_view/state.properties.
+Open Mod updates from Wurm's menu. Find Third Person View and click Settings.
+The editor exposes 24 settings in these groups: Camera, Head animation,
+Smoothing and collision, Orbit, Input and Advanced.
+Hover a label or dropdown for help. Valid edits save automatically and apply
+during play; press Enter to commit a text field immediately. Invalid values
+remain marked for correction.
 
-This release embeds Chamomilo updater 1.4.1 and Chamomilo UI 0.4.11.
+Changing tuning preserves the current view mode, zoom and orbit direction.
+Third person enabled switches the view. Default zoom changes the current
+distance without switching first/third-person mode.
+
+Editor overrides are stored at:
+  %USERPROFILE%/.chamomilo/mod-settings/wu-third-person-view.properties
+They take precedence over mods/WU-third_person_view.properties, which you can
+also edit while the client is closed. View mode and zoom are remembered in
+mods/WU-third_person_view/state.properties.
+
+Maximum distance must be at least 0.1 m greater than minimum distance.
+The exit-first-person distance must be at least 0.05 m greater than the enter
+distance. The orbit key accepts LWJGL names such as LSHIFT, RSHIFT or NONE.
+
+This release embeds Chamomilo updater 1.5.0 and Chamomilo UI 0.4.11.
 Participating mods share one registry. The newest compatible embedded updater
 is selected at startup. The registry checks releases and opens their GitHub
 pages. Install downloaded release ZIPs manually.
@@ -87,13 +104,19 @@ pages. Install downloaded release ZIPs manually.
 The updater's shared language selector supports English, Brazilian Portuguese,
 German and Russian. It applies immediately to capable installed mods. The
 initial choice follows a supported OS language, with English fallback.
-Camera commands and camera messages remain in English.
+Window controls follow the shared language. Camera setting labels, help and
+console messages remain in English.
+
+For other participating mods with startup-only settings, saving a change shows
+a restart notice. Continue configuring keeps the client running. Exit game
+saves valid pending edits and opens Wurm's normal quit confirmation.
+Third Person View's camera settings apply immediately.
 
 TROUBLESHOOTING AND LIMITS
 
 If tp is unknown, enter the world, check extraction paths and client.log, then
 restart the entire client. Successful initialization logs
-WU-third_person_view 0.4.9 hooks installed and WU-third_person_view ready.
+WU-third_person_view 0.5.0 hooks installed and WU-third_person_view ready.
 
 Wurm streams world data around the character. The camera does not request new
 regions. Terrain, vegetation, objects, lighting and cave visibility follow the

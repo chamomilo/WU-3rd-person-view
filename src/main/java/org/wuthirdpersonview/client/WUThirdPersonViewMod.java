@@ -27,7 +27,7 @@ import org.wuthirdpersonview.core.CameraState;
 
 public final class WUThirdPersonViewMod
         implements org.gotti.wurmunlimited.modloader.interfaces.ModListener, WurmClientMod, Configurable, PreInitable, Initable, ConsoleListener {
-    public static final String VERSION = "0.4.9";
+    public static final String VERSION = "0.5.0";
     private static final String[][] KEYBINDER_COMMAND_CATALOG = {
             {"Toggle third-person view", "tp toggle"},
             {"Enable third-person view", "tp on"},
@@ -104,6 +104,8 @@ public final class WUThirdPersonViewMod
 
     @Override
     public synchronized void configure(Properties properties) {
+        properties = org.chamomilo.wurm.update.SharedModSettings.configure(
+                "wu-third-person-view", properties, ModSettingsSchema.specs(), this::applyUserSettings);
         config = CameraConfig.from(properties);
         state = new CameraState(config);
         stateStore.load(state);
@@ -157,6 +159,38 @@ public final class WUThirdPersonViewMod
             LOG.log(Level.SEVERE, "Could not initialize WU-third_person_view runtime access",
                     failure);
             return false;
+        }
+    }
+
+    private synchronized void applyUserSettings(String key, Properties values) {
+        double minimum = Double.parseDouble(values.getProperty("minDistance"));
+        double maximum = Double.parseDouble(values.getProperty("maxDistance"));
+        double enter = Double.parseDouble(values.getProperty("firstPersonEnterDistance"));
+        double exit = Double.parseDouble(values.getProperty("firstPersonExitDistance"));
+        if (maximum + 1e-9 < minimum + 0.1)
+            throw new IllegalArgumentException("Maximum distance must exceed minimum distance by at least 0.1 m.");
+        if (exit + 1e-9 < enter + 0.05)
+            throw new IllegalArgumentException("Exit distance must exceed enter distance by at least 0.05 m.");
+        String orbit = values.getProperty("orbitKey").toUpperCase(Locale.ROOT);
+        int code = "NONE".equals(orbit) ? -1 : Keyboard.getKeyIndex(orbit);
+        if (!"NONE".equals(orbit) && code <= 0) throw new IllegalArgumentException("Unknown orbit key: " + orbit);
+        CameraConfig next = CameraConfig.from(values);
+        if (headAnimator != null) headAnimator.deactivate();
+        config = next;
+        state.reconfigure(next);
+        if (key.equals("enabled")) state.setThirdPersonActive(next.enabled);
+        if (key.equals("debug")) state.setDebug(next.debug);
+        if (key.equals("defaultZoom")) {
+            boolean active = state.isThirdPersonActive();
+            state.setZoom(next.defaultZoom);
+            state.setThirdPersonActive(active);
+        }
+        if (key.equals("enabled") || key.equals("defaultZoom")) stateStore.markDirty();
+        orbitKeyCode = code;
+        activeOrbitKeyCode = -1;
+        if (runtimeReady) {
+            collision = new CameraCollisionProbe(next);
+            headAnimator = new PlayerHeadAnimator(next);
         }
     }
 
